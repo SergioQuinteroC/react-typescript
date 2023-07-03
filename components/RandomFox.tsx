@@ -1,27 +1,49 @@
 import { useRef, useEffect, useState } from "react";
+import type { ImgHTMLAttributes } from "react";
 
-interface Props {
-  image: string;
+interface Props extends ImgHTMLAttributes<HTMLImageElement> {
+  src: string;
+  onLazyLoad?: (node: HTMLImageElement) => void;
 }
 
-export const RandomFox = ({ image }: Props): JSX.Element => {
+// type LazyImageProps = { image: string };
+// type ImgNative = ImgHTMLAttributes<HTMLImageElement>;
+// type Props = LazyImageProps & ImgNative;
+
+export const LazyImage = ({
+  src,
+  onLazyLoad,
+  ...imgProps
+}: Props): JSX.Element => {
   const node = useRef<HTMLImageElement>(null);
-  const [src, setSrc] = useState(
+  const [isLazyLoaded, setIsLazyLoaded] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState(
     "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjMyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiLz4="
   );
 
   // nuevo observador
   useEffect(() => {
+    if (isLazyLoaded) {
+      return;
+    }
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
+        if (!entry.isIntersecting || !node.current) {
+          return;
+        }
+
         // onIntersection -> console.log
-        if (entry.isIntersecting) {
-          setSrc(image);
+        setCurrentSrc(src);
+        observer.disconnect();
+        setIsLazyLoaded(true);
+
+        if (typeof onLazyLoad === "function") {
+          onLazyLoad(node.current);
         }
       });
     });
 
-    // observe node
     if (node.current) {
       observer.observe(node.current);
     }
@@ -30,16 +52,7 @@ export const RandomFox = ({ image }: Props): JSX.Element => {
     return () => {
       observer.disconnect();
     };
-  }, [image]);
+  }, [src, onLazyLoad, isLazyLoaded]);
 
-  return (
-    <img
-      ref={node}
-      className="rounded-lg bg-gray-300"
-      width={320}
-      height="auto"
-      src={src}
-      alt=""
-    />
-  );
+  return <img ref={node} src={currentSrc} {...imgProps} />;
 };
